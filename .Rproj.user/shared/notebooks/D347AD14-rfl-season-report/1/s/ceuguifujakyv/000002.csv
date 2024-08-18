@@ -1,0 +1,132 @@
+"0","```r
+current_standing %>% 
+    dplyr::select(-season, -week) %>% 
+    gt::gt() %>% 
+    gt::tab_header(
+      title = paste(\"RFL Standings\"),
+      subtitle = paste(\"Woche\", current_standing$week[1], current_standing$season[1])
+    ) %>% 
+    
+    gtExtras::gt_merge_stack(
+      franchise_name,
+      subline,
+      small_cap = F,
+      palette = c(\"#222f3e\", \"#8395a7\"),
+      #font_size = c(\"14px\", \"10px\"),
+      font_weight = c(\"normal\", \"normal\")
+    ) %>%
+    
+    gt::tab_spanner(
+      label = \"Standings\",
+      columns = c(win, loss, winloss, pf_sparkline, pp_dist)
+    ) %>% 
+    
+    gtExtras::gt_plt_winloss(
+      winloss,
+      max_wins = 26,
+      palette = c(\"#10ac84\", \"#ee5253\", \"#c8d6e5\"),
+      type = \"pill\"
+    ) %>% 
+    
+    gtExtras::gt_plt_sparkline(
+      pf_sparkline,
+      type = \"ref_iqr\",
+      fig_dim = c(5, 35),
+      palette = c(\"#222f3e\", \"#222f3e\", \"#ee5253\", \"#10ac84\", \"#c8d6e5\"),
+      label = F,
+      same_limit = F
+    ) %>% 
+    gtExtras::gt_plt_dist(
+      pp_dist,
+      type = \"density\",
+      fig_dim = c(5, 20),
+      line_color = \"#222f3e\",
+      fill_color = \"#c8d6e5\",
+      same_limit = TRUE
+    ) %>% 
+  
+    gt::tab_spanner(
+      label = \"Power Rank\",
+      columns = dplyr::ends_with(\"_rank\")
+    ) %>% 
+    
+    gt::tab_spanner(
+      label = \"Post-Season\",
+      columns = c(bowl, seed)
+    ) %>% 
+    
+    gt::data_color(
+      dplyr::ends_with(\"_rank\"),
+      colors = scales::col_numeric(
+        palette = c(\"#c8d6e5\", \"white\"),
+        domain = c(1,36)
+      )
+    ) %>% 
+  
+    gt::tab_style(
+      style = list(
+        cell_text(weight = \"bolder\")
+      ),
+      locations = cells_body(
+        columns = true_rank
+      )
+    ) %>%
+    
+    cols_merge(
+      columns = c(franchise_elo_postgame, elo_shift),
+      pattern = \"{1} ({2})\"
+    ) %>%
+    
+    gtExtras::gt_add_divider(c(franchise_name, pp_dist, true_rank), color = \"#c8d6e5\", include_labels = F) %>% 
+    
+    gt::cols_label(
+      franchise_name = \"Team\",
+      franchise_elo_postgame = \"ELO\",
+      elo_shift = \"+/-\",
+      win = \"W\",
+      loss = \"L\",
+      winloss = \"Ergebnisse\",
+      pf_sparkline = \"Points For\",
+      pp_dist = \"PP\",
+      pf_rank = \"PF\",
+      pp_rank = \"PP\",
+      record_rank = \"Record\",
+      all_play_rank = \"All-Play\",
+      coach_rank = \"Coach\",
+      true_rank = \"Ovrl\",
+      bowl = \"Bowl\",
+      seed = \"Seed\"
+    ) %>% 
+    
+    gt::cols_align(
+      align = \"center\",
+      columns = gt::everything()
+    ) %>% 
+    
+    gt::cols_align(
+      align = \"left\",
+      columns = c(franchise_name)
+    ) %>% 
+    
+    gt::tab_footnote(
+      footnote = \"Effizienz: PF - PP\",
+      locations = cells_column_labels(
+        columns = coach_rank
+      ),
+      placement = \"left\"
+    ) %>% 
+    
+    gt::tab_footnote(
+      footnote = \"In Klammern = ELO Veränderung zur Vorwoche\",
+      locations = cells_column_labels(
+        columns = franchise_elo_postgame
+      ),
+      placement = \"left\"
+    ) %>% 
+    
+    gtDefaults()
+
+```"
+"1","Warnung: Since gt v0.9.0, the `colors` argument has been deprecated.
+• Please use the `fn` argument instead.
+"

@@ -1,0 +1,12 @@
+name: wamp
+title: whorearemyplayers
+username: jakesch
+account: jakesch
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12472107
+bundleId: 8997993
+url: https://jakesch.shinyapps.io/wamp/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE

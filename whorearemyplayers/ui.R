@@ -22,13 +22,15 @@ shinydashboardPlus::dashboardPage(
       selectizeInput(
         "platform",
         "Select platform",
-        choices = c("MFL", "Fleaflicker"),
+        choices = c("Fleaflicker", "MFL", "Sleeper"),
         options = list(
           placeholder = "Please choose one",
           onInitialize = I('function() { this.setValue(""); }')
         )
       ),
+
       uiOutput("inputs"),
+      uiOutput("sidebarErrors"),
       uiOutput("userLeagues"),
       width = "20%"
     ),

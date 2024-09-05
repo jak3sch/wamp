@@ -83,6 +83,7 @@ server <- function(input, output, session) {
         team = nflreadr::clean_team_abbrs(team)
       )
 
+
     # render inputs dependent on platform ----
     observeEvent(input$platform, {
       req(input$platform)
@@ -101,9 +102,14 @@ server <- function(input, output, session) {
           )
           validation$add_rule("usermail", shinyvalidate::sv_required())
           validation$add_rule("usermail", shinyvalidate::sv_email())
+        } else if (input$platform == "Sleeper") {
+          platform_inputs <- tagList(
+            textInput("username", "Enter platform username")
+          )
+          validation$add_rule("username", shinyvalidate::sv_required())
         }
 
-        if (input$platform != "") {
+        if (input$platform != "" & validation$is_valid()) {
           tagList(
             platform_inputs,
             shinyFeedback::loadingButton("addPlatform", "add leagues"),
@@ -119,19 +125,18 @@ server <- function(input, output, session) {
     observeEvent(input$addPlatform, {
       req(validation$is_valid())
 
-      id <- paste0(input$addPlatform) # todo: id fixen wenn mehrere gleiche platformen hinzugefügt werden
+      tryCatch({
+        id <- paste0(input$addPlatform) # todo: id fixen wenn mehrere gleiche platformen hinzugefügt werden
 
         if (input$platform == "MFL") {
           req(input$username, input$password)
-          #conn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password)
-          conn <- ffscrapr::mfl_connect(current_season, user_name = "jakesch", password = "schuf!ness3")
+          conn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password)
           leagues <- ffscrapr::ff_userleagues(conn) %>%
             dplyr::mutate(platform = "MFL")
 
           # for each row in leagues get league players and combine them in all_players
           players <- lapply(1:nrow(leagues), function(i) {
-            #leagueConn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password, league_id = leagues$league_id[i])
-            leagueConn <- ffscrapr::mfl_connect(current_season, user_name = "jakesch", password = "schuf!ness3", league_id = leagues$league_id[i])
+            leagueConn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password, league_id = leagues$league_id[i])
             ffscrapr::ff_rosters(leagueConn, current_week) %>%
               dplyr::filter(franchise_id == leagues$franchise_id[i])
           }) %>%
@@ -146,14 +151,31 @@ server <- function(input, output, session) {
         } else if (input$platform == "Fleaflicker") {
           req(input$usermail)
 
-          #conn <- ffscrapr::fleaflicker_connect(current_season, user_email = input$usermail)
-          conn <- ffscrapr::fleaflicker_connect(current_season, user_email = "jakob@schema-ff.de")
-          leagues <- ffscrapr::ff_userleagues(conn) %>%
+          leagues <- ffscrapr::fleaflicker_userleagues(current_season, user_email = input$usermail) %>%
             dplyr::mutate(platform = "Fleaflicker")
 
           # for each row in leagues get league players and combine them in all_players
           players <- lapply(1:nrow(leagues), function(i) {
-            leagueConn <- ffscrapr::fleaflicker_connect(current_season, user_email = "jakob@schema-ff.de", league_id = leagues$league_id[i])
+            leagueConn <- ffscrapr::fleaflicker_connect(current_season, user_email = input$usermail, league_id = leagues$league_id[i])
+            ffscrapr::ff_rosters(leagueConn, current_week) %>%
+              dplyr::filter(franchise_id == leagues$franchise_id[i])
+          }) %>%
+            purrr::reduce(dplyr::bind_rows) %>%
+            dplyr::select(franchise_id, franchise_name, player_id, player_name, pos, team) %>%
+            dplyr::distinct() %>%
+            dplyr::mutate(
+              franchise_id = as.integer(franchise_id),
+              player_id = as.integer(player_id)
+            )
+        } else if (input$platform == "Sleeper") {
+          req(input$username)
+
+          leagues <- ffscrapr::sleeper_userleagues(current_season, user_name = input$username) %>%
+            dplyr::mutate(platform = "Sleeper")
+
+          # for each row in leagues get league players and combine them in all_players
+          players <- lapply(1:nrow(leagues), function(i) {
+            leagueConn <- ffscrapr::sleeper_connect(current_season, user_name = input$username, league_id = leagues$league_id[i])
             ffscrapr::ff_rosters(leagueConn, current_week) %>%
               dplyr::filter(franchise_id == leagues$franchise_id[i])
           }) %>%
@@ -170,11 +192,12 @@ server <- function(input, output, session) {
         updated_players <- dplyr::bind_rows(current_players, players)
         all_players(updated_players)
 
+        shinyFeedback::resetLoadingButton("addPlatform")
+
         #current_leagues <- all_leagues()
         #updated_leagues <- dplyr::bind_rows(current_leagues, leagues)
         #all_leagues(updated_leagues)
 
-        shinyFeedback::resetLoadingButton("addPlatform")
 
         # TODO: add sleeper
 
@@ -271,11 +294,26 @@ server <- function(input, output, session) {
               )
             )
           })
+        } else {
+          output$dynamic_ui <- renderUI({
+            tags$div(
+              class = "alert alert-danger",
+              "No players found for current week"
+            )
+          })
         }
 
         observeEvent(input$toggle_boxes, {
           updateBox("game_box", action = "toggle")
         })
+      }, error = function(e) {
+        output$sidebarErrors <- renderUI({
+          tags$div(
+            class = "alert alert-danger",
+            e
+          )
+        })
+      })
     })
   } else {
     output$userLeagues <- renderUI({
@@ -289,5 +327,5 @@ server <- function(input, output, session) {
       )
     })
   }
-
 }
+

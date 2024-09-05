@@ -12,9 +12,9 @@ library(shinydashboard)
 library(tidyverse)
 library(ffscrapr)
 library(nflreadr)
-library(shinycssloaders)
 library(shinydashboardPlus)
 library(shinyvalidate)
+library(shinyFeedback)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -32,9 +32,14 @@ server <- function(input, output, session) {
   current_nfl_matchups <- nflreadr::load_schedules(current_season) %>%
     dplyr::filter(week == current_week)
 
+  all_players <- reactiveVal(data.frame())
+  all_leagues <- reactiveVal(data.frame())
+
   # validation
 
   validation <- InputValidator$new()
+
+  # outputa ----
 
   output$window_title <- renderUI({
     titlePanel(
@@ -77,10 +82,11 @@ server <- function(input, output, session) {
         full_name = nflreadr::clean_player_names(full_name),
         team = nflreadr::clean_team_abbrs(team)
       )
-    all_players <- data.frame()
 
     # render inputs dependent on platform ----
     observeEvent(input$platform, {
+      req(input$platform)
+
       output$inputs <- renderUI({
         if (input$platform == "MFL") {
           platform_inputs <- tagList(
@@ -100,7 +106,7 @@ server <- function(input, output, session) {
         if (input$platform != "") {
           tagList(
             platform_inputs,
-            actionButton("addPlatform", "add leagues"),
+            shinyFeedback::loadingButton("addPlatform", "add leagues"),
             tags$p("Depending on how many leagues you have in this account and the roster sizes this can take some time")
           )
         }
@@ -113,62 +119,78 @@ server <- function(input, output, session) {
     observeEvent(input$addPlatform, {
       req(validation$is_valid())
 
-      shinycssloaders::showPageSpinner()
       id <- paste0(input$addPlatform) # todo: id fixen wenn mehrere gleiche platformen hinzugefügt werden
 
         if (input$platform == "MFL") {
           req(input$username, input$password)
-          conn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password)
-          leagues <- ffscrapr::ff_userleagues(conn)
+          #conn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password)
+          conn <- ffscrapr::mfl_connect(current_season, user_name = "jakesch", password = "schuf!ness3")
+          leagues <- ffscrapr::ff_userleagues(conn) %>%
+            dplyr::mutate(platform = "MFL")
 
           # for each row in leagues get league players and combine them in all_players
           players <- lapply(1:nrow(leagues), function(i) {
-            leagueConn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password, league_id = leagues$league_id[i])
+            #leagueConn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password, league_id = leagues$league_id[i])
+            leagueConn <- ffscrapr::mfl_connect(current_season, user_name = "jakesch", password = "schuf!ness3", league_id = leagues$league_id[i])
             ffscrapr::ff_rosters(leagueConn, current_week) %>%
               dplyr::filter(franchise_id == leagues$franchise_id[i])
           }) %>%
             purrr::reduce(dplyr::bind_rows) %>%
             dplyr::select(franchise_id, franchise_name, player_id, player_name, pos, team) %>%
-            dplyr::distinct()
+            dplyr::distinct() %>%
+            dplyr::mutate(
 
-          all_players <- rbind(all_players, players)
+              franchise_id = as.integer(franchise_id),
+              player_id = as.integer(player_id)
+            )
         } else if (input$platform == "Fleaflicker") {
           req(input$usermail)
 
-          conn <- ffscrapr::fleaflicker_connect(current_season, user_email = input$usermail)
-          leagues <- ffscrapr::ff_userleagues(conn)
+          #conn <- ffscrapr::fleaflicker_connect(current_season, user_email = input$usermail)
+          conn <- ffscrapr::fleaflicker_connect(current_season, user_email = "jakob@schema-ff.de")
+          leagues <- ffscrapr::ff_userleagues(conn) %>%
+            dplyr::mutate(platform = "Fleaflicker")
 
           # for each row in leagues get league players and combine them in all_players
           players <- lapply(1:nrow(leagues), function(i) {
-            leagueConn <- ffscrapr::fleaflicker_connect(current_season, user_email = input$usermail, league_id = "193571")
+            leagueConn <- ffscrapr::fleaflicker_connect(current_season, user_email = "jakob@schema-ff.de", league_id = leagues$league_id[i])
             ffscrapr::ff_rosters(leagueConn, current_week) %>%
               dplyr::filter(franchise_id == leagues$franchise_id[i])
           }) %>%
             purrr::reduce(dplyr::bind_rows) %>%
             dplyr::select(franchise_id, franchise_name, player_id, player_name, pos, team) %>%
-            dplyr::distinct()
-
-          all_players <- rbind(all_players, players)
+            dplyr::distinct() %>%
+            dplyr::mutate(
+              franchise_id = as.integer(franchise_id),
+              player_id = as.integer(player_id)
+            )
         }
 
-      # TODO: add sleeper
+        current_players <- all_players()
+        updated_players <- dplyr::bind_rows(current_players, players)
+        all_players(updated_players)
 
-        output$userLeagues <- renderUI({
-          tags$div(
-            tags$strong(input$platform),
-            lapply(1:nrow(leagues), function(i) {
-              tags$div(
-                class = "userTeam",
-                paste(leagues$league_name[i], "-", leagues$franchise_name[i])
-              )
-          #                 #actionButton(paste0("remove_", input$addPlatform), "Entfernen")
-            })
-          )
-        })
+        #current_leagues <- all_leagues()
+        #updated_leagues <- dplyr::bind_rows(current_leagues, leagues)
+        #all_leagues(updated_leagues)
+
+        shinyFeedback::resetLoadingButton("addPlatform")
+
+        # TODO: add sleeper
+
+        #output$userLeagues <- renderUI({
+        #  lapply(1:nrow(all_leagues()), function(i) {
+        #    tags$div(
+        #      class = "userTeam",
+        #      paste0(leagues$league_name[i], " (", leagues$platform[i], ")")
+        #    )
+            #                 #actionButton(paste0("remove_", input$addPlatform), "Entfernen")
+        #  })
+        #})
 
         # check if all_players is not empty
-        if (nrow(all_players) > 0) {
-          all_players <- all_players %>%
+        if (nrow(all_players()) > 0) {
+          players <- all_players() %>%
             dplyr::filter(team != "FA") %>%
             dplyr::mutate(
               player_name = nflreadr::clean_player_names(player_name),
@@ -199,7 +221,7 @@ server <- function(input, output, session) {
                   nrow(current_nfl_matchups)
                     #dplyr::filter(label %in% input$filterMatchups)
                 ), function(i) {
-                  matchup_players <- all_players %>%
+                  matchup_players <- players %>%
                     dplyr::filter(team == current_nfl_matchups$home_team[i] | team == current_nfl_matchups$away_team[i]) %>%
                     dplyr::select(player_name, team) %>%
                     dplyr::distinct() %>%
@@ -227,13 +249,13 @@ server <- function(input, output, session) {
                           column(6,
                                  renderTable(
                                    matchup_players %>%
-                                     dplyr::filter(Team == current_nfl_matchups$home_team[i])
+                                     dplyr::filter(Team == current_nfl_matchups$away_team[i])
                                  )
                           ),
                           column(6,
                                  renderTable(
                                    matchup_players %>%
-                                     dplyr::filter(Team == current_nfl_matchups$away_team[i])
+                                     dplyr::filter(Team == current_nfl_matchups$home_team[i])
                                  )
                           )
                         )
@@ -254,8 +276,6 @@ server <- function(input, output, session) {
         observeEvent(input$toggle_boxes, {
           updateBox("game_box", action = "toggle")
         })
-
-        shinycssloaders::hidePageSpinner()
     })
   } else {
     output$userLeagues <- renderUI({

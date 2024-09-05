@@ -22,7 +22,7 @@ shinydashboardPlus::dashboardPage(
       selectizeInput(
         "platform",
         "Select platform",
-        choices = c("MFL", "Sleeper", "Fleaflicker"),
+        choices = c("MFL", "Fleaflicker"),
         options = list(
           placeholder = "Please choose one",
           onInitialize = I('function() { this.setValue(""); }')

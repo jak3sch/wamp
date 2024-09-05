@@ -2,6 +2,10 @@
   min-height: 100vh;
 }
 
+.main-sidebar #userLeagues {
+  overflow-x: auto;
+}
+
 #userLeagues,
 .main-sidebar p {
   padding: 24px 15px 0px 15px;

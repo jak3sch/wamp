@@ -17,7 +17,7 @@ shinydashboardPlus::dashboardPage(
       disable = TRUE
     ),
 
-    # Sidebar with a slider input for number of bins
+   # Sidebar with a slider input for number of bins
     sidebar = shinydashboard::dashboardSidebar(
       selectizeInput(
         "platform",
@@ -45,6 +45,6 @@ shinydashboardPlus::dashboardPage(
       width = "80%"
     ),
 
-    footer = shinydashboardPlus::dashboardFooter(right = "@Jakob Eschler / nflverse"),
+    footer = shinydashboardPlus::dashboardFooter(right = "@Jakob Eschler / nflverse", left = "alpha 0.0.1"),
     skin = "midnight"
 )

@@ -14,6 +14,7 @@ library(ffscrapr)
 library(nflreadr)
 library(shinycssloaders)
 library(shinydashboardPlus)
+library(shinyvalidate)
 
 # Define server logic required to draw a histogram
 server <- function(input, output, session) {
@@ -27,10 +28,13 @@ server <- function(input, output, session) {
   position_order <- c("QB", "RB", "WR", "TE", "DT", "DE", "ILB", "OLB", "LB", "CB", "SS", "FS", "DB")
 
   current_season <- nflreadr::get_current_season(TRUE)
-  current_week <- nflreadr::get_current_week()
-  current_week <- 1
+  current_week <- nflreadr::get_current_week(TRUE)
   current_nfl_matchups <- nflreadr::load_schedules(current_season) %>%
     dplyr::filter(week == current_week)
+
+  # validation
+
+  validation <- InputValidator$new()
 
   output$window_title <- renderUI({
     titlePanel(
@@ -51,7 +55,6 @@ server <- function(input, output, session) {
         label = paste(away_team, "@", home_team),
         # create game_time from gameday and gametime
         timestamp = as.POSIXct(paste(gameday, gametime), format = "%Y-%m-%d %H:%M", tz = "America/New_York"),
-        test = paste(gameday, gametime),
         timestamp = as.POSIXct(timestamp, tz = user_timezone),
         timestamp_label = paste(
           weekdays(timestamp, TRUE), format(timestamp, "%d.%m. %H:%M")
@@ -84,12 +87,14 @@ server <- function(input, output, session) {
             textInput("username", "Enter platform username"),
             passwordInput("password", "Enter platform password")
           )
-
-
+          validation$add_rule("username", shinyvalidate::sv_required())
+          validation$add_rule("password", shinyvalidate::sv_required())
         } else if (input$platform == "Fleaflicker") {
           platform_inputs <- tagList(
             textInput("usermail", "Enter platform user mail adress")
           )
+          validation$add_rule("usermail", shinyvalidate::sv_required())
+          validation$add_rule("usermail", shinyvalidate::sv_email())
         }
 
         if (input$platform != "") {
@@ -102,8 +107,12 @@ server <- function(input, output, session) {
       })
     })
 
+    validation$enable()
+
     # create main ui ----
     observeEvent(input$addPlatform, {
+      req(validation$is_valid())
+
       shinycssloaders::showPageSpinner()
       id <- paste0(input$addPlatform) # todo: id fixen wenn mehrere gleiche platformen hinzugefügt werden
 
@@ -143,9 +152,6 @@ server <- function(input, output, session) {
         }
 
       # TODO: add sleeper
-
-        # tags$div("test")
-
 
         output$userLeagues <- renderUI({
           tags$div(
@@ -187,7 +193,7 @@ server <- function(input, output, session) {
               #  )
               # TODO: matchup filter
               #),
-              ,
+              #,
               fluidRow(
                 lapply(seq_len(
                   nrow(current_nfl_matchups)

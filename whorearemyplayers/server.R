@@ -85,8 +85,7 @@ server <- function(input, output, session) {
         ),
         collapsed = ifelse(color == "success", FALSE, TRUE)
       ) %>%
-      dplyr::arrange(color, timestamp)
-      # TODO: check if sorting is correct
+      dplyr::arrange(dplyr::desc(color), timestamp)
 
     nfl_weekly_roster <- nflreadr::load_rosters_weekly(current_season) %>%
       dplyr::filter(week == current_week) %>%

@@ -154,8 +154,24 @@ server <- function(input, output, session) {
             # for each row in leagues get league players and combine them in all_players
             players <- lapply(1:nrow(leagues), function(i) {
               leagueConn <- ffscrapr::mfl_connect(current_season, user_name = input$username, password = input$password, league_id = leagues$league_id[i])
-              ffscrapr::ff_rosters(leagueConn, current_week) %>%
-                dplyr::filter(franchise_id == leagues$franchise_id[i])
+              league_endpoint <- ffscrapr::mfl_getendpoint(leagueConn, "league") %>%
+                purrr::pluck("content", "league")
+              league_type <- league_endpoint[["keeperType"]]
+
+              if (is.null(league_type)) {
+                league_type <- league_endpoint[["loadRosters"]]
+
+                if (is.na(league_type) || league_type != "contest") {
+                  league_type <- NA_character_
+                }
+              }
+
+              if (!is.na(league_type) && league_type == "none") league_type <- "redraft"
+
+              if (!is.na(league_type) && league_type != "contest") {
+                ffscrapr::ff_rosters(leagueConn, current_week) %>%
+                  dplyr::filter(franchise_id == leagues$franchise_id[i])
+              }
             }) %>%
               clean_players()
           } else if (input$platform == "Fleaflicker") {
